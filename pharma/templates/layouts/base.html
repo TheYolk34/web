@@ -1,0 +1,33 @@
+{%load static%}
+
+<!DOCTYPE html>
+
+<html lang="en">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="{% static "css/bootstrap.css" %}">
+    <link rel="stylesheet" href="{% static "css/style.css" %}">
+</head>
+<div class="cphi header">
+    <div class="cphi container">
+        <div class="topline">
+            <a href="{% url "index" %}">
+                <img src="{% static "img/logo.png" %}" width="260" height="46">
+            </a>
+            <div class="d-flex" style="width: 100px"></div>
+        </div>
+    </div>
+</div>
+  
+  <div class="main-content">
+    {% block content %}
+    {% endblock %}
+    </div>
+
+
+</body>
+
+</html>

@@ -1,0 +1,27 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div id="{{ drug.id }}" class="row" style="margin-top: 40px;">
+    <div class="col-2"></div>
+
+    <div class="col-4 pt-5">
+        <img class="drug-photo" src="{{ drug.photo }}">
+    </div>
+
+    <div class="col-4 grid row-gap-3">
+        <div class="pt-2 pb-2">
+            <h1>{{ drug.name }}</h1>
+            <h4>Описание: {{ drug.description }}</h4>
+            <h4>Эффективен против таких болезней как: {{ drug.illnesses }} </h4>
+        </div>
+        <div class="mb-5" style="text-align: justify">
+            <p class="drug-description">{{ drug.description }}</p>
+        </div>
+    </div>
+
+    <div class="col-2"></div>
+</div>
+
+{% endblock %}

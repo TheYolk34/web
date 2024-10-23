@@ -1,0 +1,14 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h1 class="title">{{ illness.name }}</h1>
+    <div class="content">
+        <div class="text-section">
+            <p class="description">{{ illness.description }}</p>
+        </div>
+        <img src="{{ illness.photo }}" alt="{{ illness.name }}">
+    </div>
+</div>
+{% endblock %}
