@@ -2,43 +2,61 @@
 {% load static %}
 
 {% block content %}
-
-<div class="row mt-5 mb-3">
-    <div class="col-2"></div>
-    <div class="col-6">
-    {% for illness in illnesses %}
-        <div class="row">
-            <div class="card mb-3">
-                <div class="row g-0">
-                <div class="col-md-4 mt-4">
-                    <img src="{{ illness.photo }}" class="img-fluid rounded-start" style="object-fit: cover;" alt="...">
+<div class="clinpharm-content">
+    <div class="container">
+        <!-- Поисковая строка -->
+        <div class="search-section">
+            <form class="search-form" method="GET" action="{% url 'index' %}" role="search">
+                <div class="search-container">
+                    <input class="search-input" type="search" name="illness" placeholder="Способ передачи болезни" value="{{ query|default:'' }}">
+                    <button type="submit" class="search-button">
+                        <img src="{% static 'img/search.png' %}" class="search-icon" alt="Search">
+                    </button>
                 </div>
-                <div class="col-md-8">
-                    <div class="card-body">
-                    <a href="{% url 'illness' illness.id %}" style="color: black; text-decoration: none"><h3>{{ illness.name }}</h3></a>
-                    <p class="card-text text-description">{{ illness.description | truncatechars:160 | linebreaksbr }}</p>
-                    </div>
-                </div>
-                </div>
+            </form>
+        
+            <!-- Кнопка "плюс" справа от поиска -->
+            <div class="d-flex flex-column align-items-end position-relative plus-button-container">
+                {% if drug %}
+                    <a href="{% url 'drug' drug.id %}">
+                        <img src="{% static 'img/plus.png' %}" height="50px">
+                    </a>
+                    <span class="badge bg-warning badge-position">{{ drug.count }}</span>
+                {% else %}
+                    <a href="#" class="btn btn-outline-warning">
+                        <img src="{% static 'img/plus.png' %}" height="50px">
+                    </a>
+                    <span class="badge bg-warning badge-position">0</span>
+                {% endif %}
             </div>
         </div>
-    {% endfor %}  
-    </div>
-    <div class="col-3">
-        <div class="input-group mb-3">
-            <form class="d-flex" method="GET" action="{% url 'index' %}" role="search">
-                <input class="form-control me-2" type="search" name="illness" placeholder="Способ передачи болезни" style="width: 250px; height: 40px" value="{{ query|default:'' }}">
-                <button type="submit" class="btn btn-search btn-fix ps-0" style="height: 30px">
-                    <img src="{% static 'img/search.png' %}" height="30px">
-                </button>
-            </form>
-        </div>
-        <div class="d-flex flex-column align-items-end position-relative" style="width: 280px">
-            <a href="{% url "drug" drug %}"><img src="{% static "img/plus.png" %}" height="50px"></a>
-            <span class="badge bg-warning badge-position">{{ count }}</span>
-        </div>
+        
+        <!-- Карточки болезней с градиентом зелёного -->
+        <div class="cards-container three-columns">
+            {% for illness in illnesses %}
+                <div class="disease-card si{{ forloop.counter }}">
+                    <div class="disease-content">
+                        <a href="{% url 'illness' illness.id %}">
+                            <!-- Изображение болезни с белой рамкой и скругленными углами -->
+                            <div class="disease-image-container">
+                                <img src="{{ illness.photo }}" class="disease-image" alt="{{ illness.name }}">
+                            </div>
+                            <h2 class="disease-title">{{ illness.name }}</h2>
+                        </a>
+                        <p class="disease-spread">Способ передачи: {{ illness.spread }}</p>
+                        
+                        <!-- Кнопка с новым стилем -->
+                        <form method="POST" action="{% url 'add_illness_to_drug' illness.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="add-request-button styled-button">
+                                    Добавить заявку
+                            </button>
+                        </form>                        
+                        <!--  <button class="add-request-button styled-button">Добавить в заявки</button> -->
+                    </div>
+                </div>
+            {% endfor %}
+        </div>        
     </div>
 </div>
-
-
 {% endblock %}

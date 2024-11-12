@@ -1,14 +1,15 @@
 {% extends "layouts/base.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container mt-2">
     <div class="row justify-content-center mb-4">
         <div class="col-8 text-center">
             <h2>Название препарата</h2>
-            <input type="text" class="form-control" id="ask-name" value="{{ ask_name }}">
+            <input type="text" class="form-control" id="ask-name" value="{{ drug_name }}">
             <h2>Описание препарата</h2>
-            <textarea class="form-control" id="ask-description" rows="4">{{ ask_description }}</textarea>
+            <textarea class="form-control" id="ask-description" rows="4">{{ drug_description }}</textarea>
         </div>
     </div>
 
@@ -19,7 +20,7 @@
     </div>
 
     <div class="row justify-content-center">
-        {% for illness, result in illnesses_with_results %}
+        {% for illness in selected_illnesses %}
         <div class="col-md-4 d-flex justify-content-center mb-4">
             <div class="card" style="width: 100%; max-width: 300px;">
                 <img src="{{ illness.photo }}" class="img-fluid rounded-start" style="width: 100%; height: 250px; object-fit: cover;" alt="...">
@@ -28,7 +29,7 @@
                         <h3 class="card-title">{{ illness.name }}</h3>
                         <h3 class="card-title">
                             Клинические испытания: 
-                            <input type="text" name="result" value="{{ result }}" class="form-control" style="display:inline-block; width:auto;">
+                            <input type="text" name="result" value="{{ illness_result|index:illness.id }}" class="form-control" style="display:inline-block; width:auto;">
                         </h3>                        
                     </div>
                 </div>
