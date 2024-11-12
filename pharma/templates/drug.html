@@ -36,6 +36,10 @@
             </div>
         </div>
         {% endfor %}
-    </div> 
+    </div>
+    <form method="POST" action="{% url "delete_drug" drug.id %}" class="button-container">
+        {% csrf_token %}
+        <button class="del-btn">Удалить заявку</button>
+    </form> 
 </div>
 {% endblock %}
