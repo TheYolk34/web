@@ -658,3 +658,19 @@ html, body {
 .add-request-button.styled-button:hover {
     background-color: #d32f2f;
 }
+
+/* Стиль для счетчика заявок */
+.badge-position {
+    position: relative;
+    top: 120px; /* сместим немного ниже кнопки плюс */
+    right: -10px; /* сдвиг вправо для центрирования под кнопкой */
+    background-color: #47cea8; /* яркий желтый фон */
+    color: #ffffff; /* зеленая рамка */
+    border-radius: 20%; /* округление для круглой формы */
+    padding: 5px 10px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
