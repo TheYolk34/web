@@ -482,12 +482,14 @@ html, body {
     display: flex;
     justify-content: center;
     align-items: center;
+    object-fit: cover;
 }
 
 .disease-image {
     max-width: 100%;
-    height: auto;
+    height: 170;
     border-radius: 8px;
+    object-fit: cover;
 }
 
 .disease-title {
@@ -536,3 +538,123 @@ html, body {
 .si8 { background-color: #2fa97f; }
 .si9 { background-color: #2cbf97; }
 .si10 { background-color: #1fa481; }
+
+/* Контейнер для размещения по центру экрана */
+
+
+/* Центрирование строки */
+.drug-row.drug-center {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+/* Ограничение ширины контента */
+.drug-col {
+    max-width: 600px;
+    width: 100%;
+}
+
+/* Заголовки */
+.drug-title {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #333;
+    text-align: center;
+}
+
+.drug-subtitle {
+    font-size: 1.3rem;
+    color: #555;
+    text-align: center;
+}
+
+/* Стили для input и textarea */
+.drug-input, .drug-textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 20px;
+    border: 1.5px solid #00b670;
+    font-size: 16px;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+}
+
+/* Дополнительный стиль для textarea */
+.drug-textarea {
+    resize: vertical;
+}
+
+/* Основной контейнер */
+.drug-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Центрирование строки */
+.drug-row.drug-center {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+/* Колонка для текста и ввода */
+.drug-col {
+    max-width: 600px;
+    width: 100%;
+}
+
+/* Заголовки и подзаголовки */
+.drug-title {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #333;
+    text-align: center;
+}
+
+.drug-subtitle {
+    font-size: 1.3rem;
+    color: #555;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Стили для input и textarea */
+.drug-input, .drug-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #1ba65c;
+    border-radius: 15px;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+
+/* Инлайн-стиль для ввода */
+.drug-input-inline {
+    display: inline-block;
+    width: auto;
+    padding: 5px;
+    border: 1px solid #1ba65c;
+    border-radius: 15px;
+}
+
+/* Стили для кнопки */
+.add-request-button.styled-button {
+    background-color: #f44336;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.add-request-button.styled-button:hover {
+    background-color: #d32f2f;
+}

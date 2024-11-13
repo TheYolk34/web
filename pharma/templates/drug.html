@@ -3,43 +3,52 @@
 {% load custom_filters %}
 
 {% block content %}
-<div class="container mt-2">
-    <div class="row justify-content-center mb-4">
-        <div class="col-8 text-center">
-            <h2>Название препарата</h2>
-            <input type="text" class="form-control" id="ask-name" value="{{ drug_name }}">
-            <h2>Описание препарата</h2>
-            <textarea class="form-control" id="ask-description" rows="4">{{ drug_description }}</textarea>
+<div class="drug-container">
+    <!-- Блок с названием и описанием препарата -->
+    <div class="drug-row drug-center">
+        <div class="drug-col text-center">
+            <h2 class="drug-title">Название препарата</h2>
+            <input type="text" class="drug-input" id="ask-name" value="{{ drug_name }}">
+            <h2 class="drug-title">Описание препарата</h2>
+            <textarea class="drug-textarea" id="ask-description" rows="4">{{ drug_description }}</textarea>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12">
-            <h3 class="text-center">Помогает от таких болезней как:</h3>
+    <!-- Подзаголовок для списка заболеваний -->
+    <div class="drug-row">
+        <div class="drug-col">
+            <h3 class="drug-subtitle">Помогает от таких болезней как:</h3>
         </div>
     </div>
 
-    <div class="row justify-content-center">
+    <!-- Карточки болезней -->
+    <div class="cards-container three-columns">
         {% for illness in selected_illnesses %}
-        <div class="col-md-4 d-flex justify-content-center mb-4">
-            <div class="card" style="width: 100%; max-width: 300px;">
-                <img src="{{ illness.photo }}" class="img-fluid rounded-start" style="width: 100%; height: 250px; object-fit: cover;" alt="...">
-                <div>
-                    <div class="card-body text-center">
-                        <h3 class="card-title">{{ illness.name }}</h3>
-                        <h3 class="card-title">
-                            Клинические испытания: 
-                            <input type="text" name="result" value="{{ illness_result|index:illness.id }}" class="form-control" style="display:inline-block; width:auto;">
-                        </h3>                        
-                    </div>
+            <div class="disease-card si{{ forloop.counter }}">
+                <div class="disease-content text-center">
+                    <a href="{% url 'illness' illness.id %}">
+                        <!-- Изображение с белой рамкой и скругленными углами -->
+                        <div class="disease-image-container">
+                            <img src="{{ illness.photo }}" class="disease-image" alt="{{ illness.name }}">
+                        </div>
+                        <h2 class="disease-title">{{ illness.name }}</h2>
+                    </a>
+                    <!-- Поле для ввода результатов клинических испытаний -->
+                    <h3 class="card-title">
+                        Клинические испытания: 
+                        <input type="text" name="result" value="{{ illness_result|index:illness.id }}" class="drug-input-inline">
+                    </h3> 
                 </div>
             </div>
-        </div>
         {% endfor %}
-    </div>
-    <form method="POST" action="{% url "delete_drug" drug.id %}" class="button-container">
-        {% csrf_token %}
-        <button class="del-btn">Удалить заявку</button>
-    </form> 
+    </div>     
+
+    <!-- Кнопка для удаления заявки -->
+    <div class="button-container">
+        <form method="POST" action="{% url "delete_drug" drug.id %}">
+            {% csrf_token %}
+            <button class="add-request-button styled-button">Удалить заявку</button>
+        </form>
+    </div> 
 </div>
 {% endblock %}
