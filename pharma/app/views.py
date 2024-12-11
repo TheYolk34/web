@@ -1,11 +1,12 @@
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, action
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.views import APIView
 from django.utils import timezone
-from django.http import Http404
+from django.http import Http404, HttpResponse, JsonResponse
 from .models import Illness, Drug, DrugIllness
-from .serializers import IllnessSerializer, DrugSerializer, DrugIllnessSerializer, UserSerializer
+from .serializers import *
 from django.conf import settings
 from minio import Minio
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -13,24 +14,29 @@ from rest_framework.response import *
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.views import View
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
+from django.views.decorators.csrf import csrf_exempt
+from app.permissions import *
+import redis
+import uuid
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
 
-class UserSingleton:
-    _instance = None
+def get_csrf_token(request):
+    return JsonResponse({'csrfToken': get_token(request)})
 
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            try:
-                cls._instance = User.objects.get(id=11)
-            except User.DoesNotExist:
-                cls._instance = None
-        return cls._instance
+session_storage = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
 
-    @classmethod
-    def clear_instance(cls, user):
-        pass
-
+def method_permission_classes(classes):
+    def decorator(func):
+        def decorated_func(self, *args, **kwargs):
+            self.permission_classes = classes        
+            self.check_permissions(self.request)
+            return func(self, *args, **kwargs)
+        return decorated_func
+    return decorator
 
 def process_file_upload(file_object: InMemoryUploadedFile, client, image_name):
     try:
@@ -68,10 +74,10 @@ class IllnessList(APIView):
         illnesses = self.model_class.objects.filter(status='a')
         if illness_name:
             illnesses = illnesses.filter(name__icontains=illness_name)
-        user = UserSingleton.get_instance()
+        user = request.user
         draft_drug_id = None
         count = 0
-        if user:
+        if user.is_authenticated:
             draft_drug = Drug.objects.filter(creator=user, status='dr').first()
             if draft_drug:
                 draft_drug_id = draft_drug.id
@@ -84,7 +90,9 @@ class IllnessList(APIView):
             'count': count
         }
         return Response(response_data)
-  
+    
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def post(self, request, format=None):
         data = request.data.copy()
         data['photo'] = None
@@ -111,7 +119,9 @@ class IllnessDetail(APIView):
         elif request.path.endswith('/draft/'):
             return self.add_to_draft(request, pk)
         raise Http404
-
+    
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def update_image(self, request, pk):
         illness = get_object_or_404(self.model_class, pk=pk)
         pic = request.FILES.get("photo")
@@ -141,8 +151,9 @@ class IllnessDetail(APIView):
 
         return Response({"message": "Изображение успешно обновлено.", "photo_url": pic_url}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(request_body=serializer_class)
     def add_to_draft(self, request, pk):
-        user = UserSingleton.get_instance()
+        user = request.user
         if not user:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
@@ -163,6 +174,9 @@ class IllnessDetail(APIView):
         DrugIllness.objects.create(drug=draft_drug, illness=illness)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
     def put(self, request, pk, format=None):
         illness = get_object_or_404(self.model_class, pk=pk)
         serializer = self.serializer_class(illness, data=request.data, partial=True)
@@ -171,6 +185,7 @@ class IllnessDetail(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @method_permission_classes([IsManager])
     def delete(self, request, pk, format=None):
         illness = get_object_or_404(self.model_class, pk=pk)
         if illness.photo:
@@ -195,17 +210,24 @@ class IllnessDetail(APIView):
 class DrugList(APIView):
     model_class = Drug
     serializer_class = DrugSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
-        user = UserSingleton.get_instance()
+        user = request.user
 
         # Получаем фильтры из запросов
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
         status = request.query_params.get('status')
 
-        # Фильтруем ужины по пользователю и статусам
-        drugs = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
+
+        if user.is_authenticated:
+            if user.is_staff:
+                drugs = self.model_class.objects.all()
+            else:
+                drugs = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
+        else:
+            return Response({"error": "Вы не авторизованы"}, status=401)
 
         if date_from:
             drugs = drugs.filter(created_at__gte=date_from)
@@ -216,14 +238,20 @@ class DrugList(APIView):
 
         # Сериализуем данные
         serialized_drugs = [
-            {**self.serializer_class(drug).data, 'creator': drug.creator.username, 'moderator': drug.moderator.username if drug.moderator else None}
-            for drug in drugs
+        {
+            **self.serializer_class(drug).data,
+            'creator': drug.creator.email,
+            'moderator': drug.moderator.email if drug.moderator else None
+        }
+        for drug in drugs
         ]
 
         return Response(serialized_drugs)
 
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsAdmin, IsManager])
     def put(self, request, format=None):
-        user = UserSingleton.get_instance()
+        user = request.user
         required_fields = ['table_number']
         for field in required_fields:
             if field not in request.data or request.data[field] is None:
@@ -247,20 +275,22 @@ class DrugList(APIView):
 class DrugDetail(APIView):
     model_class = Drug
     serializer_class = DrugSerializer
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
         serializer = self.serializer_class(drug)
         data = serializer.data
-        data['creator'] = drug.creator.username
+        print(drug.creator)
+        data['creator'] = drug.creator.email
         if drug.moderator:
-            data['moderator'] = drug.moderator.username 
+            data['moderator'] = drug.moderator.email
 
         return Response(data)
 
     def put(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
-        user = UserSingleton.get_instance()
+        user = request.user
 
         if 'status' in request.data:
             status_value = request.data['status']
@@ -301,6 +331,75 @@ class DrugDetail(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(request_body=serializer_class)
+    def put_creator(self, request, pk):
+        drug = get_object_or_404(self.model_class, pk=pk)
+        ssid = request.COOKIES.get("session_id")
+        if ssid and session_storage.exists(ssid):
+            email = session_storage.get(ssid).decode("utf-8")
+            print(f"Email found in session: {email}")
+            request.user = CustomUser.objects.get(email=email)
+        else:
+            print("No valid session found.")
+            request.user = None
+        user = request.user
+        if user == drug.creator:
+
+            if 'status' in request.data and request.data['status'] == 'f':
+                drug.formed_at = timezone.now()
+                updated_data = request.data.copy()
+
+                serializer = self.serializer_class(drug, data=updated_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"error": "Создатель может только формировать заявку."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Отказано в доступе"}, status=status.HTTP_403_FORBIDDEN)        
+
+    @swagger_auto_schema(request_body=serializer_class)
+    @method_permission_classes([IsManager])
+    def put_moderator(self, request, pk):
+        drug = get_object_or_404(self.model_class, pk=pk)
+        user = request.user
+        
+        if 'status' in request.data:
+            status_value = request.data['status']
+
+            # Модератор может завершить ('c') или отклонить ('r') заявку
+            if status_value in ['c', 'r']:
+                if drug.status != 'f':
+                    return Response({"error": "Заявка должна быть сначала сформирована."}, status=status.HTTP_403_FORBIDDEN)
+
+                if status_value == 'c':
+                    drug.completed_at = timezone.now()
+                    updated_data = request.data.copy()
+
+                elif status_value == 'r':
+                    drug.completed_at = timezone.now()
+                    updated_data = request.data.copy()
+
+                serializer = self.serializer_class(drug, data=updated_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save(moderator=user)
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Модератор может только завершить или отклонить заявку."}, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(request_body=serializer_class)
+    def put_edit(self, request, pk):
+        drug = get_object_or_404(self.model_class, pk=pk)
+
+        serializer = self.serializer_class(drug, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     # Удаление заявки
     def delete(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
@@ -313,6 +412,7 @@ class DrugIllnessDetail(APIView):
     model_class = DrugIllness
     serializer_class = DrugIllnessSerializer
 
+    @swagger_auto_schema(request_body=serializer_class)
     def put(self, request, drug_id, illness_id, format=None):
         drug = get_object_or_404(Drug, pk=drug_id)
         drug_illness = get_object_or_404(self.model_class, drug=drug, illness__id=illness_id)
@@ -330,53 +430,115 @@ class DrugIllnessDetail(APIView):
         drug_illness.delete()
         return Response({"message": "Болезнь успешно удалена из Лекарства"}, status=status.HTTP_204_NO_CONTENT)
 
-class UserView(APIView):
-    def post(self, request, action, format=None):
-        if action == 'register':
-            serializer = UserSerializer(data=request.data)
-            if serializer.is_valid():
-                validated_data = serializer.validated_data
-                user = User(
-                    username=validated_data['username'],
-                    email=validated_data['email']
-                )
-                user.set_password(request.data.get('password'))
-                user.save()
-                return Response({
-                    'message': 'Регистрация прошла успешно'
-                }, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# View для User (пользователей)
+class UserViewSet(ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    model_class = CustomUser
 
-        elif action == 'login':
-            username = request.data.get('username')
-            password = request.data.get('password')
-            user = authenticate(request, username=username, password=password)
-            
-            if user is not None:
-                user_data = UserSerializer(user).data
-                return Response({
-                    'message': 'Аутентификация успешна',
-                    'user': user_data
-                }, status=200)
-            
-            return Response({'error': 'Неправильное имя пользователя или пароль'}, status=400)
+    # def get_permissions(self):
+    #     # Удаляем ненужные проверки, чтобы любой пользователь мог обновить свой профиль
+    #     if self.action == 'create':
+    #         return [AllowAny()]
+    #     return [IsAuthenticated()]
 
-        elif action == 'logout':
-            return Response({'message': 'Вы вышли из системы'}, status=200)
+    def get_permissions(self):
+        if self.action in ['create', 'profile']:
+            permission_classes = [AllowAny]
+        elif self.action in ['list']:
+            permission_classes = [IsAdmin | IsManager]
+        else:
+            permission_classes = [IsAdmin]
+        return [permission() for permission in permission_classes]
 
-        return Response({'error': 'Некорректное действие'}, status=400)
+    def create(self, request):
+        if self.model_class.objects.filter(email=request.data['email']).exists():
+            return Response({'status': 'Exist'}, status=400)
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            self.model_class.objects.create_user(
+                email=serializer.data['email'],
+                password=serializer.data['password'],
+                is_superuser=serializer.data['is_superuser'],
+                is_staff=serializer.data['is_staff']
+            )
+            return Response({'status': 'Success'}, status=200)
+        return Response({'status': 'Error', 'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     # Обновление данных профиля пользователя
-    def put(self, request, action, format=None):
-        if action == 'profile':
-            user = UserSingleton.get_instance()
-            if user is None:
-                return Response({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            serializer = UserSerializer(user, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({'message': 'Профиль обновлен', 'user': serializer.data}, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=False, methods=['put'], permission_classes=[AllowAny])
+    def profile(self, request, format=None):
+        user = request.user
+        print(user)
+        if not user.is_authenticated:
+            return Response({'error': 'Вы не авторизованы'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response({'error': 'Некорректное действие'}, status=status.HTTP_400_BAD_REQUEST)
+        old_email = user.email
+        data = request.data
+
+        if 'password' in data and data['password']:
+            user.set_password(data['password'])
+            user.save()
+            del data['password']
+
+        serializer = self.serializer_class(user, data=data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+
+            new_email = serializer.data.get('email')
+            if new_email and old_email != new_email:
+                ssid = request.COOKIES.get("session_id")
+                if ssid:
+                    session_storage.delete(ssid)
+                    session_storage.set(ssid, new_email, ex=settings.SESSION_COOKIE_AGE)
+
+            return Response({'message': 'Профиль обновлен', 'user': serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@authentication_classes([])
+@swagger_auto_schema(method='post', request_body=UserSerializer)
+@api_view(['Post'])
+@csrf_exempt
+@permission_classes([AllowAny])
+def login_view(request):
+    username = request.data["email"] 
+    password = request.data["password"]
+
+    user = authenticate(request, email=username, password=password)
+    if user is not None:
+        random_key = str(uuid.uuid4())
+        session_storage.set(random_key, username)
+        response = JsonResponse({"status": "ok", "username": username})
+        response.set_cookie("session_id", random_key)
+        return response
+    else:
+        return JsonResponse({"status": "error", "error": "login failed"})
+
+def logout_view(request):
+    session_id = request.COOKIES.get("session_id")
+
+    if session_id:
+        session_storage.delete(session_id)
+        response = HttpResponse("{'status': 'ok'}")
+        response.delete_cookie("session_id")
+        return response
+    else:
+        return HttpResponse("{'status': 'error', 'error': 'no session found'}")
+
+@swagger_auto_schema(method='get')
+@api_view(["GET"])
+@csrf_exempt
+def check_session(request):
+    session_id = request.COOKIES.get("session_id")
+    
+    if session_id:
+        username = session_storage.get(session_id)
+        if username:
+            if isinstance(username, bytes):
+                username = username.decode('utf-8')
+            return JsonResponse({"status": "ok", "username": username})
+    
+    return JsonResponse({"status": "error", "message": "Invalid session"})

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from app.models import Illness, Drug, DrugIllness
+from app.models import Illness, Drug, DrugIllness, CustomUser
 
 
 class IllnessSerializer(serializers.ModelSerializer):
@@ -61,7 +61,9 @@ class DrugIllnessSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    is_staff = serializers.BooleanField(default=False, required=False)
+    is_superuser = serializers.BooleanField(default=False, required=False)
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email']
+        model = CustomUser
+        fields = ['email', 'password', 'is_staff', 'is_superuser']
  
