@@ -87,6 +87,7 @@ class Drug(models.Model):
     ]
     name = models.CharField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
+    price = models.IntegerField(null=True, blank=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=9, default='dr')
     created_at = models.DateTimeField(auto_now_add=True)
     formed_at = models.DateTimeField(blank=True, null=True)

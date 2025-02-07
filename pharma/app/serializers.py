@@ -15,8 +15,8 @@ class IllnessSerializer(serializers.ModelSerializer):
 
         # Если это запрос списка, исключаем поле 'spread' и 'photo'
         if context.get('is_list', False):
-            self.fields.pop('spread')
-            self.fields.pop('photo')
+            self.fields.pop('description')
+            self.fields.pop('status')
 
     def get_fields(self):
         fields = super().get_fields()
@@ -35,7 +35,7 @@ class DrugSerializer(serializers.ModelSerializer):
     class Meta:
         model = Drug
         fields = [
-            'id', 'name', 'description', 'status', 'created_at', 
+            'id', 'name', 'description', 'price', 'status', 'created_at', 
             'formed_at', 'completed_at', 'creator', 'moderator'
         ]
 
