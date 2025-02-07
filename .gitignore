@@ -1,47 +1,57 @@
-    env/
-    __pycache__/
-    db.sqlite3
-    config.py
-    .vscode
-   
-   # Python
-   __pycache__/
-   *.py[cod]
-   *.pyo
-   *.pyd
-   *.env
-   *.venv
-   env/
-   venv/
-   ENV/
-   env.bak/
-   venv.bak/
-   .python-version
+# Игнорировать все файлы с расширением .log
+*.log
 
-   # Django
-   *.log
-   *.pot
-   *.pyc
-   *.pyo
-   *.pyd
-   *.sqlite3
-   db.sqlite3
-   media/
+# Игнорировать папку node_modules
+node_modules/
 
-   # Migrations
-   */migrations/*
+# Игнорировать скрытые файлы и папки, кроме .gitignore
+.*
+!.gitignore
+    
+env/
+__pycache__/
+db.sqlite3
+config.py
+.vscode
 
-   # If you're using django-debug-toolbar
-   debug.log
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+*.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
 
-   # PyCharm
-   .idea/
-   
-   # VSCode
-   .vscode/
-   
-   # macOS
-   .DS_Store
+# Django
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+media/
 
-   # Byte-compiled / optimized / DLL files
-   *.py[cod]
+# Migrations
+*/migrations/*
+
+# If you're using django-debug-toolbar
+debug.log
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
