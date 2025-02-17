@@ -30,34 +30,32 @@ class IllnessSerializer(serializers.ModelSerializer):
 
         return fields
 
-
-class DrugSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Drug
-        fields = [
-            'id', 'name', 'description', 'price', 'status', 'created_at', 
-            'formed_at', 'completed_at', 'creator', 'moderator'
-        ]
-
-    def __init__(self, *args, **kwargs):
-        # Получаем контекст из запроса
-        exclude_dates = kwargs.pop('exclude_dates', False)
-        super(DrugSerializer, self).__init__(*args, **kwargs)
-
-        # Исключаем временные поля, если указан exclude_dates=True
-        if exclude_dates:
-            self.fields.pop('created_at', None)
-            self.fields.pop('formed_at', None)
-            self.fields.pop('completed_at', None)
-
-
 class DrugIllnessSerializer(serializers.ModelSerializer):
-    drug = DrugSerializer(read_only=True)
     illness = IllnessSerializer(read_only=True)
 
     class Meta:
         model = DrugIllness
-        fields = ['drug', 'illness', 'trial']
+        fields = ['illness', 'trial']
+
+class DrugSerializer(serializers.ModelSerializer):
+    illnesses = DrugIllnessSerializer(many=True, read_only=True, source='drugillness_set')
+
+    class Meta:
+        model = Drug
+        fields = [
+            'id', 'name', 'description', 'price', 'status', 'created_at', 
+            'formed_at', 'completed_at', 'creator', 'moderator', 'illnesses'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        # Получаем контекст из запроса
+        exclude_illnesses = kwargs.pop('exclude_illnesses', False)
+        super(DrugSerializer, self).__init__(*args, **kwargs)
+
+                # Убираем поле 'illnesses' если exclude_illnesses=True
+        if exclude_illnesses:
+            self.fields.pop('illnesses', None)
+
 
 
 class UserSerializer(serializers.ModelSerializer):

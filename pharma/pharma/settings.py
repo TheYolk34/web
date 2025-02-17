@@ -27,7 +27,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     '192.168.31.169',
-    'localhost'
+    '127.0.0.1',
+    'localhost',
+    '192.168.1.56'
 ]
 
 
@@ -47,7 +49,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+    'django.middleware.security.SecurityMiddleware',    
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -152,3 +154,15 @@ AWS_S3_ENDPOINT_URL = 'localhost:9000'
 MINIO_USE_SSL = False
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 6379
+SESSION_COOKIE_AGE = 1209600 
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+# ]
+# CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = [
+    'https://localhost:3000',
+]

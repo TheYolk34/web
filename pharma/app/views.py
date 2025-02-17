@@ -239,7 +239,7 @@ class DrugList(APIView):
         # Сериализуем данные
         serialized_drugs = [
         {
-            **self.serializer_class(drug).data,
+            **self.serializer_class(drug, exclude_illnesses=True).data,
             'creator': drug.creator.email,
             'moderator': drug.moderator.email if drug.moderator else None
         }
