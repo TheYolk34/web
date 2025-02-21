@@ -44,7 +44,7 @@ class DrugSerializer(serializers.ModelSerializer):
         model = Drug
         fields = [
             'id', 'name', 'description', 'price', 'status', 'created_at', 
-            'formed_at', 'completed_at', 'creator', 'moderator', 'illnesses'
+            'formed_at', 'completed_at', 'creator', 'moderator', 'illnesses', 'qr'
         ]
 
     def __init__(self, *args, **kwargs):

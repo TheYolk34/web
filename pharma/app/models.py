@@ -94,6 +94,7 @@ class Drug(models.Model):
     completed_at = models.DateTimeField(blank=True, null=True)
     creator = models.ForeignKey(CustomUser, related_name='drugs_created', on_delete=models.SET_NULL, null=True)
     moderator = models.ForeignKey(CustomUser, related_name='drugs_moderated', on_delete=models.SET_NULL, null=True, blank=True)
+    qr = models.TextField(null=True, blank=True)
 
     class Meta:
         constraints = [

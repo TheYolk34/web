@@ -23,6 +23,34 @@ import redis
 import uuid
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, action
+from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework.views import APIView
+from django.utils import timezone
+from django.http import Http404, HttpResponse, JsonResponse
+from .models import Illness, Drug, DrugIllness
+from .serializers import *
+from django.conf import settings
+from minio import Minio
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from rest_framework.response import *
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login, logout
+from django.views import View
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
+from django.views.decorators.csrf import csrf_exempt
+from app.permissions import *
+import redis
+import uuid
+from django.http import JsonResponse
+from django.middleware.csrf import get_token
+from .services.qr_generate import generate_drug_qr
+
+
 
 def get_csrf_token(request):
     return JsonResponse({'csrfToken': get_token(request)})
@@ -219,8 +247,6 @@ class DrugList(APIView):
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
         status = request.query_params.get('status')
-
-
         if user.is_authenticated:
             if user.is_staff:
                 drugs = self.model_class.objects.all()
@@ -252,7 +278,7 @@ class DrugList(APIView):
     @method_permission_classes([IsAdmin, IsManager])
     def put(self, request, format=None):
         user = request.user
-        required_fields = ['table_number']
+        required_fields = ['name']
         for field in required_fields:
             if field not in request.data or request.data[field] is None:
                 return Response({field: 'Это поле обязательно для заполнения.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -279,27 +305,51 @@ class DrugDetail(APIView):
 
     def get(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
-        serializer = self.serializer_class(drug)
-        data = serializer.data
-        print(drug.creator)
-        data['creator'] = drug.creator.email
-        if drug.moderator:
-            data['moderator'] = drug.moderator.email
+        ssid = request.COOKIES.get("session_id")
+        
+        # Проверка на наличие сессии и получение пользователя
+        if ssid and session_storage.exists(ssid):
+            email = session_storage.get(ssid).decode("utf-8")
+            print(f"Email found in session: {email}")
+            request.user = CustomUser.objects.get(email=email)
+        else:
+            print("No valid session found.")
+            request.user = None
+        
+        # Если пользователь является сотрудником (isStaff = true), разрешаем доступ к любому сражению
+        if request.user and request.user.is_staff and drug.status != 'dr':
+            # Сотрудники могут видеть все сражения
+            serializer = self.serializer_class(drug, context={'is_drug': True})
+            data = serializer.data
+            data['creator'] = drug.creator.email
+            if drug.moderator:
+                data['moderator'] = drug.moderator.email
+            return Response(data)
 
-        return Response(data)
-
+    
     def put(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
         user = request.user
+        print(1)
 
         if 'status' in request.data:
             status_value = request.data['status']
+            
+            if status_value == 'c':
+                drug_illnesses = DrugIllness.objects.filter(drug=drug)
+                drug.qr = generate_drug_qr(drug, drug_illnesses)
+                drug.save()
+
+                print(drug.qr)
 
             if status_value in ['del', 'f']:
+                print(3)
                 if drug.creator == user:
                     updated_data = request.data.copy()
+                    print(4)
 
                     if status_value == 'f':
+                        print(5)
                         drug.formed_at = timezone.now()
 
                     serializer = self.serializer_class(drug, data=updated_data, partial=True)
@@ -511,7 +561,7 @@ def login_view(request):
     if user is not None:
         random_key = str(uuid.uuid4())
         session_storage.set(random_key, username)
-        response = JsonResponse({"status": "ok", "username": username})
+        response = JsonResponse({"status": "ok", "username": username, "is_staff": user.is_staff})
         response.set_cookie("session_id", random_key)
         return response
     else:
@@ -539,6 +589,7 @@ def check_session(request):
         if username:
             if isinstance(username, bytes):
                 username = username.decode('utf-8')
-            return JsonResponse({"status": "ok", "username": username})
+            user = CustomUser.objects.get(email=username)
+            return JsonResponse({"status": "ok", "username": username, "is_staff": user.is_staff})
     
     return JsonResponse({"status": "error", "message": "Invalid session"})
