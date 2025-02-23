@@ -165,4 +165,5 @@ CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     'https://localhost:3000',
+    'https://192.168.31.169:3000'
 ]

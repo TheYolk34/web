@@ -23,32 +23,8 @@ import redis
 import uuid
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes, authentication_classes, action
-from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.views import APIView
-from django.utils import timezone
-from django.http import Http404, HttpResponse, JsonResponse
-from .models import Illness, Drug, DrugIllness
-from .serializers import *
-from django.conf import settings
-from minio import Minio
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from rest_framework.response import *
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login, logout
-from django.views import View
-from drf_yasg.utils import swagger_auto_schema
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
-from django.views.decorators.csrf import csrf_exempt
-from app.permissions import *
-import redis
-import uuid
-from django.http import JsonResponse
-from django.middleware.csrf import get_token
 from .services.qr_generate import generate_drug_qr
+import requests
 
 
 
@@ -357,7 +333,14 @@ class DrugDetail(APIView):
                 drug.qr = generate_drug_qr(drug, drug_illnesses)
                 drug.save()
 
-                print(drug.qr)
+                response = requests.post(
+                    "http://localhost:8081/generate-price",
+                    data={"drug_id": str(drug.id)}
+                )
+                if response.status_code != 200:
+                    print(f"Failed to start price generation: {response.text}")
+                else:
+                    print(f"Price generation started: {response.json()}")
 
             if status_value in ['del', 'f']:
                 if drug.creator == user:
@@ -607,3 +590,25 @@ def check_session(request):
             return JsonResponse({"status": "ok", "username": username, "is_staff": user.is_staff})
     
     return JsonResponse({"status": "error", "message": "Invalid session"})
+
+class DrugPriceUpdate(APIView):
+    model_class = Drug
+    serializer_class = DrugSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def put(self, request, pk, format=None):
+        token = request.headers.get("Authorization")
+        print(token)
+        if token != "Token 12345678":
+            return Response({"error": "Invalid token"}, status=status.HTTP_403_FORBIDDEN)
+        
+        drug = get_object_or_404(self.model_class, pk=pk)
+        price = request.data.get("price")
+        if price is None:
+            return Response({"error": "Price is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        drug.price = price
+        drug.save()
+        serializer = self.serializer_class(drug)
+        return Response({"message": "Price updated", "drug": serializer.data}, status=status.HTTP_200_OK)

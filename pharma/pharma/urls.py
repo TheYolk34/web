@@ -48,6 +48,7 @@ urlpatterns = [
     path('drugs/<int:pk>/form/', views.DrugDetail.as_view(), name='drug-detail-form'),
     path('drugs/<int:pk>/complete/', views.DrugDetail.as_view(), name='drug-detail-complete'),
     path('drugs/<int:pk>/', views.DrugDetail.as_view(), name='drug-detail'),
+    path('drugs/<int:pk>/price/', views.DrugPriceUpdate.as_view(), name='drug-price-update'),
     path('drugs/<int:drug_id>/illnesses/<int:illness_id>/', views.DrugIllnessDetail.as_view(), name='drug-illness-detail'),
     path('login/',  views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
