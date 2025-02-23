@@ -247,29 +247,35 @@ class DrugList(APIView):
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
         status = request.query_params.get('status')
-        if user.is_authenticated:
-            if user.is_staff:
-                drugs = self.model_class.objects.all()
-            else:
-                drugs = self.model_class.objects.filter(creator=user).exclude(status__in=['dr', 'del'])
-        else:
+
+        if not user.is_authenticated:
             return Response({"error": "Вы не авторизованы"}, status=401)
 
+        # Базовая выборка в зависимости от роли
+        if user.is_staff:
+            drugs = self.model_class.objects.all()
+        else:
+            drugs = self.model_class.objects.filter(creator=user)
+
+        # Исключаем черновики по умолчанию для всех
+        drugs = drugs.exclude(status='dr')  # Можно добавить .exclude(status__in=['dr', 'del']), если нужно исключить и 'del'
+
+        # Применяем фильтры из запроса
         if date_from:
             drugs = drugs.filter(created_at__gte=date_from)
         if date_to:
             drugs = drugs.filter(created_at__lte=date_to)
-        if status:
+        if status:  # Если указан статус, он переопределяет исключение 'dr'
             drugs = drugs.filter(status=status)
 
         # Сериализуем данные
         serialized_drugs = [
-        {
-            **self.serializer_class(drug, exclude_illnesses=True).data,
-            'creator': drug.creator.email,
-            'moderator': drug.moderator.email if drug.moderator else None
-        }
-        for drug in drugs
+            {
+                **self.serializer_class(drug, exclude_illnesses=True).data,
+                'creator': drug.creator.email,
+                'moderator': drug.moderator.email if drug.moderator else None
+            }
+            for drug in drugs
         ]
 
         return Response(serialized_drugs)
@@ -307,30 +313,41 @@ class DrugDetail(APIView):
         drug = get_object_or_404(self.model_class, pk=pk)
         ssid = request.COOKIES.get("session_id")
         
-        # Проверка на наличие сессии и получение пользователя
         if ssid and session_storage.exists(ssid):
-            email = session_storage.get(ssid).decode("utf-8")
-            print(f"Email found in session: {email}")
-            request.user = CustomUser.objects.get(email=email)
+            try:
+                email = session_storage.get(ssid).decode("utf-8")
+                print(f"Email found in session: {email}")
+                request.user = CustomUser.objects.get(email=email)
+            except CustomUser.DoesNotExist:
+                print("User not found for email in session.")
+                request.user = None
         else:
             print("No valid session found.")
             request.user = None
         
-        # Если пользователь является сотрудником (isStaff = true), разрешаем доступ к любому сражению
-        if request.user and request.user.is_staff and drug.status != 'dr':
-            # Сотрудники могут видеть все сражения
+        if not request.user:
+            return Response({"error": "Требуется авторизация"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        is_creator = request.user == drug.creator
+        is_draft = drug.status == 'dr'
+
+        # Логика доступа:
+        # 1. Создатель может видеть свои заявки любого статуса
+        # 2. Сотрудники могут видеть все нечерновики
+        if is_creator or (request.user.is_staff and not is_draft):
             serializer = self.serializer_class(drug, context={'is_drug': True})
             data = serializer.data
             data['creator'] = drug.creator.email
             if drug.moderator:
                 data['moderator'] = drug.moderator.email
             return Response(data)
+        
+        return Response({"error": "Доступ запрещён"}, status=status.HTTP_403_FORBIDDEN)
 
     
     def put(self, request, pk, format=None):
         drug = get_object_or_404(self.model_class, pk=pk)
         user = request.user
-        print(1)
 
         if 'status' in request.data:
             status_value = request.data['status']
@@ -343,13 +360,10 @@ class DrugDetail(APIView):
                 print(drug.qr)
 
             if status_value in ['del', 'f']:
-                print(3)
                 if drug.creator == user:
                     updated_data = request.data.copy()
-                    print(4)
 
                     if status_value == 'f':
-                        print(5)
                         drug.formed_at = timezone.now()
 
                     serializer = self.serializer_class(drug, data=updated_data, partial=True)
